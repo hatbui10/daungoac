@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trình Quét & Báo Lỗi Ngoặc Code</title>
+    <title>Trình Quét Dấu Lập Trình Linh Hoạt</title>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -129,7 +129,7 @@
             overflow-x: auto;
         }
 
-        /* CHỈ TÔ MÀU NỔI BẬT CHO CÁC DẤU NGOẶC BỊ LỖI */
+        /* ĐÁNH DẤU LỖI */
         .error-mark {
             background-color: #ff3333;
             color: #ffffff;
@@ -158,12 +158,12 @@
 <body>
 
 <div class="container">
-    <h2>🔍 Trình Quét Lỗi Ngoặc Code</h2>
+    <h2>🔍 Trình Quét Lỗi Dấu Lập Trình Tùy Chỉnh</h2>
 
     <!-- Ô NHẬP CODE -->
     <div class="card">
         <label for="codeInput">1. Dán đoạn code cần kiểm tra vào đây:</label>
-        <textarea id="codeInput" placeholder="Ví dụ:&#10;function tinhToan(a, b) {&#10;    let tong = (a + (b * 2);&#10;    return tong;&#10;}" oninput="processCode()"></textarea>
+        <textarea id="codeInput" placeholder="Ví dụ:&#10;function test() {&#10;    let name = 'Nguyen;&#10;    let msg = `Xin chào ${name};&#10;}" oninput="processCode()"></textarea>
         <div class="button-group">
             <button class="btn" onclick="processCode()">⚡ Quét Lỗi Ngay</button>
             <button class="btn btn-clear" onclick="clearAll()">🗑️ Xóa Nội Dung</button>
@@ -172,7 +172,7 @@
 
     <!-- KHUNG HIỂN THỊ CODE GỐC -->
     <div class="card">
-        <label>2. Code gốc (Đánh số lề trái - Chỉ tô sáng vị trí ngoặc bị lỗi):</label>
+        <label>2. Code gốc (Đánh số lề trái - Tô đỏ vị trí các dấu bị lỗi):</label>
         <div class="editor-container">
             <div id="lineNumbers" class="line-numbers">1</div>
             <div id="codeDisplay" class="code-content">Chưa có nội dung...</div>
@@ -187,6 +187,26 @@
 </div>
 
 <script>
+// ==========================================
+// BẢNG CẤU HÌNH CÁC DẤU (BẠN CÓ THỂ THÊM BẤT KỲ DẤU NÀO VÀO ĐÂY)
+// ==========================================
+
+// 1. Các cặp dấu có Mở và Đóng (Ngoặc, Cặp thẻ,...)
+const PAIR_BRACKETS = {
+    '(': ')',
+    '{': '}',
+    '[': ']'
+    // Ví dụ muốn thêm cặp thẻ hoặc dấu khác thì viết thêm vào đây:
+    // '<': '>' 
+};
+
+// 2. Các dấu nháy đơn / nháy kép (Dấu mở và đóng trùng nhau)
+const QUOTE_MARKS = ["'", '"', '`'];
+
+
+// ==========================================
+// THUẬT TOÁN XỬ LÝ (GIỮ NGUYÊN KHÔNG CẦN SỬA)
+// ==========================================
 function processCode() {
     const text = document.getElementById('codeInput').value;
     const lineNumbersEl = document.getElementById('lineNumbers');
@@ -201,7 +221,7 @@ function processCode() {
         return;
     }
 
-    // --- 1. TẠO SỐ DÒNG LỀ TRÁI ---
+    // Tạo số dòng lề trái
     const lines = text.split('\n');
     let lineHTML = "";
     for (let i = 1; i <= lines.length; i++) {
@@ -209,49 +229,83 @@ function processCode() {
     }
     lineNumbersEl.innerHTML = lineHTML;
 
-    // --- 2. THUẬT TOÁN QUÉT LỖI NGOẶC ---
     let openStack = [];
     let errorIndices = new Set();
     let logs = [];
+    let activeQuote = null;
+
+    // Đảo ngược danh sách đóng để kiểm tra nhanh
+    const closingBrackets = Object.values(PAIR_BRACKETS);
+    const openingBrackets = Object.keys(PAIR_BRACKETS);
 
     for (let i = 0; i < text.length; i++) {
         let char = text[i];
+        let prevChar = i > 0 ? text[i - 1] : '';
 
-        if (char === '(' || char === '{' || char === '[') {
+        // Bỏ qua ký tự escape '\'
+        if (prevChar === '\\') continue;
+
+        // Xử lý dấu nháy
+        if (QUOTE_MARKS.includes(char)) {
+            if (activeQuote === null) {
+                activeQuote = char;
+            } else if (activeQuote === char) {
+                activeQuote = null;
+            }
+            continue;
+        }
+
+        // Bỏ qua nội dung bên trong chuỗi nháy
+        if (activeQuote !== null) {
+            if (char === '\n') {
+                errorIndices.add(i);
+                let lineNo = getLineNumber(text, i);
+                logs.push(`⚠️ Dòng ${lineNo}: Thiếu dấu đóng nháy '${activeQuote}' trước khi xuống dòng.`);
+                activeQuote = null;
+            }
+            continue;
+        }
+
+        // Kiểm tra dấu Mở
+        if (openingBrackets.includes(char)) {
             openStack.push({ char: char, index: i });
         } 
-        else if (char === ')' || char === '}' || char === ']') {
+        // Kiểm tra dấu Đóng
+        else if (closingBrackets.includes(char)) {
             if (openStack.length === 0) {
                 errorIndices.add(i);
                 let lineNo = getLineNumber(text, i);
                 logs.push(`❌ Dòng ${lineNo}: Thừa dấu đóng '${char}'`);
             } else {
                 let lastOpen = openStack.pop();
-                let isMatch = (lastOpen.char === '(' && char === ')') ||
-                              (lastOpen.char === '{' && char === '}') ||
-                              (lastOpen.char === '[' && char === ']');
+                let expectedClose = PAIR_BRACKETS[lastOpen.char];
                 
-                if (!isMatch) {
+                if (expectedClose !== char) {
                     errorIndices.add(i);
                     let lineNo = getLineNumber(text, i);
-                    logs.push(`❌ Dòng ${lineNo}: Sai cặp ngoặc (Mở '${lastOpen.char}' nhưng đóng '${char}')`);
+                    logs.push(`❌ Dòng ${lineNo}: Sai cặp dấu (Mở '${lastOpen.char}' nhưng đóng '${char}')`);
                 }
             }
         }
     }
 
+    // Báo lỗi nếu thiếu đóng nháy ở cuối
+    if (activeQuote !== null) {
+        logs.push(`⚠️ Cảnh báo: Bị sót dấu đóng nháy '${activeQuote}' ở cuối đoạn code.`);
+    }
+
+    // Báo lỗi nếu thừa dấu mở (thiếu đóng)
     while (openStack.length > 0) {
         let unclosed = openStack.pop();
         errorIndices.add(unclosed.index);
         let lineNo = getLineNumber(text, unclosed.index);
-        logs.push(`⚠️ Dòng ${lineNo}: Thiếu dấu đóng cho ngoặc mở '${unclosed.char}'`);
+        logs.push(`⚠️ Dòng ${lineNo}: Thiếu dấu đóng tương ứng cho '${unclosed.char}'`);
     }
 
-    // --- 3. HIỂN THỊ CODE GỐC: NGOẶC ĐÚNG GIỮA NGUYÊN, NGOẶC SAI MỚI TÔ MÀU ---
+    // Hiển thị code gốc và tô đỏ vị trí lỗi
     let highlightedHTML = "";
     for (let i = 0; i < text.length; i++) {
         let safeChar = escapeHtml(text[i]);
-        
         if (errorIndices.has(i)) {
             highlightedHTML += `<span class="error-mark">${safeChar}</span>`;
         } else {
@@ -260,10 +314,10 @@ function processCode() {
     }
     codeDisplayEl.innerHTML = highlightedHTML;
 
-    // --- 4. HIỂN THỊ NHẬT KÝ BÁO LỖI ---
+    // Hiển thị nhật ký lỗi
     if (logs.length === 0) {
         logOutput.style.color = "#00ffcc";
-        logOutput.textContent = "✨ Tuyệt vời! Tất cả các dấu ngoặc đều hoàn chỉnh và đối xứng hoàn hảo.";
+        logOutput.textContent = "✨ Tuyệt vời! Tất cả các dấu cấu hình đều khớp và hoàn hảo.";
     } else {
         logOutput.style.color = "#ff5252";
         logOutput.textContent = logs.join('\n');
