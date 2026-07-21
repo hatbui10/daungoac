@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trình Quét Dấu Lập Trình Linh Hoạt</title>
+    <title>Trình Quét Dấu Lập Trình & Chấm Phẩy</title>
     <style>
         :root {
             --bg-color: #0b0f19;
@@ -158,12 +158,12 @@
 <body>
 
 <div class="container">
-    <h2>🔍 Trình Quét Lỗi Dấu Lập Trình Tùy Chỉnh</h2>
+    <h2>🔍 Trình Quét Lỗi Dấu & Chấm Phẩy Code</h2>
 
     <!-- Ô NHẬP CODE -->
     <div class="card">
         <label for="codeInput">1. Dán đoạn code cần kiểm tra vào đây:</label>
-        <textarea id="codeInput" placeholder="Ví dụ:&#10;function test() {&#10;    let name = 'Nguyen;&#10;    let msg = `Xin chào ${name};&#10;}" oninput="processCode()"></textarea>
+        <textarea id="codeInput" placeholder="Ví dụ:&#10;let a = 5&#10;let b = 10;"></textarea>
         <div class="button-group">
             <button class="btn" onclick="processCode()">⚡ Quét Lỗi Ngay</button>
             <button class="btn btn-clear" onclick="clearAll()">🗑️ Xóa Nội Dung</button>
@@ -172,7 +172,7 @@
 
     <!-- KHUNG HIỂN THỊ CODE GỐC -->
     <div class="card">
-        <label>2. Code gốc (Đánh số lề trái - Tô đỏ vị trí các dấu bị lỗi):</label>
+        <label>2. Code gốc (Đánh số lề trái - Tô đỏ vị trí lỗi):</label>
         <div class="editor-container">
             <div id="lineNumbers" class="line-numbers">1</div>
             <div id="codeDisplay" class="code-content">Chưa có nội dung...</div>
@@ -188,24 +188,18 @@
 
 <script>
 // ==========================================
-// BẢNG CẤU HÌNH CÁC DẤU (BẠN CÓ THỂ THÊM BẤT KỲ DẤU NÀO VÀO ĐÂY)
+// BẢNG CẤU HÌNH CÁC DẤU
 // ==========================================
-
-// 1. Các cặp dấu có Mở và Đóng (Ngoặc, Cặp thẻ,...)
 const PAIR_BRACKETS = {
     '(': ')',
     '{': '}',
     '[': ']'
-    // Ví dụ muốn thêm cặp thẻ hoặc dấu khác thì viết thêm vào đây:
-    // '<': '>' 
 };
 
-// 2. Các dấu nháy đơn / nháy kép (Dấu mở và đóng trùng nhau)
 const QUOTE_MARKS = ["'", '"', '`'];
 
-
 // ==========================================
-// THUẬT TOÁN XỬ LÝ (GIỮ NGUYÊN KHÔNG CẦN SỬA)
+// THUẬT TOÁN XỬ LÝ
 // ==========================================
 function processCode() {
     const text = document.getElementById('codeInput').value;
@@ -221,7 +215,6 @@ function processCode() {
         return;
     }
 
-    // Tạo số dòng lề trái
     const lines = text.split('\n');
     let lineHTML = "";
     for (let i = 1; i <= lines.length; i++) {
@@ -234,18 +227,16 @@ function processCode() {
     let logs = [];
     let activeQuote = null;
 
-    // Đảo ngược danh sách đóng để kiểm tra nhanh
     const closingBrackets = Object.values(PAIR_BRACKETS);
     const openingBrackets = Object.keys(PAIR_BRACKETS);
 
+    // 1. Quét lỗi ngoặc và nháy từng ký tự
     for (let i = 0; i < text.length; i++) {
         let char = text[i];
         let prevChar = i > 0 ? text[i - 1] : '';
 
-        // Bỏ qua ký tự escape '\'
         if (prevChar === '\\') continue;
 
-        // Xử lý dấu nháy
         if (QUOTE_MARKS.includes(char)) {
             if (activeQuote === null) {
                 activeQuote = char;
@@ -255,7 +246,6 @@ function processCode() {
             continue;
         }
 
-        // Bỏ qua nội dung bên trong chuỗi nháy
         if (activeQuote !== null) {
             if (char === '\n') {
                 errorIndices.add(i);
@@ -266,11 +256,9 @@ function processCode() {
             continue;
         }
 
-        // Kiểm tra dấu Mở
         if (openingBrackets.includes(char)) {
             openStack.push({ char: char, index: i });
         } 
-        // Kiểm tra dấu Đóng
         else if (closingBrackets.includes(char)) {
             if (openStack.length === 0) {
                 errorIndices.add(i);
@@ -289,17 +277,47 @@ function processCode() {
         }
     }
 
-    // Báo lỗi nếu thiếu đóng nháy ở cuối
     if (activeQuote !== null) {
         logs.push(`⚠️ Cảnh báo: Bị sót dấu đóng nháy '${activeQuote}' ở cuối đoạn code.`);
     }
 
-    // Báo lỗi nếu thừa dấu mở (thiếu đóng)
     while (openStack.length > 0) {
         let unclosed = openStack.pop();
         errorIndices.add(unclosed.index);
         let lineNo = getLineNumber(text, unclosed.index);
         logs.push(`⚠️ Dòng ${lineNo}: Thiếu dấu đóng tương ứng cho '${unclosed.char}'`);
+    }
+
+    // 2. Kiểm tra bổ sung: Thiếu dấu chấm phẩy (;) cuối dòng lệnh
+    let currentIndex = 0;
+    for (let r = 0; r < lines.length; r++) {
+        let lineTrim = lines[r].trim();
+        let lineEndIndex = currentIndex + lines[r].length - 1;
+
+        // Điều kiện một dòng cần có dấu chấm phẩy ở cuối:
+        // - Không trống
+        // - Không kết thúc bằng {, }, ;, ,, :, hoặc các từ khóa cấu trúc
+        if (lineTrim.length > 0 && 
+            !lineTrim.endsWith('{') && 
+            !lineTrim.endsWith('}') && 
+            !lineTrim.endsWith(';') && 
+            !lineTrim.endsWith(',') && 
+            !lineTrim.endsWith(':') &&
+            !lineTrim.startsWith('//') &&
+            !lineTrim.startsWith('/*') &&
+            !lineTrim.startsWith('if') &&
+            !lineTrim.startsWith('for') &&
+            !lineTrim.startsWith('while') &&
+            !lineTrim.startsWith('function') &&
+            !lineTrim.startsWith('class')) {
+            
+            // Đánh dấu lỗi ở ký tự cuối dòng đó
+            if (lineEndIndex >= 0) {
+                errorIndices.add(lineEndIndex);
+                logs.push(`⚡ Dòng ${r + 1}: Có thể thiếu dấu chấm phẩy (;) ở cuối câu lệnh.`);
+            }
+        }
+        currentIndex += lines[r].length + 1; // +1 cho ký tự xuống dòng \n
     }
 
     // Hiển thị code gốc và tô đỏ vị trí lỗi
