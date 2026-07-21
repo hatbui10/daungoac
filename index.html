@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình Quét & Báo Lỗi Ngoặc Code</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: #131b2e;
+            --border-color: rgba(0, 240, 255, 0.2);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-color: #00f0ff;
+            --btn-bg: #10b981;
+            --error-color: #ff4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--accent-color);
+            margin-bottom: 5px;
+        }
+
+        .card {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--accent-color);
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 140px;
+            background-color: #080c14;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+            resize: vertical;
+            outline: none;
+            line-height: 1.5;
+        }
+
+        textarea:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+        }
+
+        .btn {
+            background-color: var(--btn-bg);
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.85;
+        }
+
+        /* KHUNG CODE CÓ SỐ DÒNG LỀ TRÁI */
+        .editor-container {
+            display: flex;
+            background-color: #080c14;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .line-numbers {
+            background-color: rgba(13, 17, 23, 0.95);
+            color: #484f58;
+            padding: 12px 10px;
+            text-align: right;
+            min-width: 45px;
+            border-right: 1px solid var(--border-color);
+            user-select: none;
+            line-height: 1.5;
+        }
+
+        .code-content {
+            flex: 1;
+            padding: 12px;
+            white-space: pre;
+            line-height: 1.5;
+            overflow-x: auto;
+        }
+
+        /* CHỈ TÔ MÀU NỔI BẬT CHO CÁC DẤU NGOẶC BỊ LỖI */
+        .error-mark {
+            background-color: #ff3333;
+            color: #ffffff;
+            font-weight: bold;
+            padding: 0 3px;
+            border-radius: 3px;
+            border-bottom: 2px wavy #ffff00;
+        }
+
+        /* NHẬT KÝ BÁO LỖI NỔI BẬT */
+        .log-box {
+            background-color: #080c14;
+            border: 1px solid #ffcc00;
+            padding: 14px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            color: #ffeb3b;
+            min-height: 70px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            box-shadow: 0 0 10px rgba(255, 204, 0, 0.15);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🔍 Trình Quét Lỗi Ngoặc Code</h2>
+
+    <!-- Ô NHẬP CODE -->
+    <div class="card">
+        <label for="codeInput">1. Dán đoạn code cần kiểm tra vào đây:</label>
+        <textarea id="codeInput" placeholder="Ví dụ:&#10;function tinhToan(a, b) {&#10;    let tong = (a + (b * 2);&#10;    return tong;&#10;}" oninput="processCode()"></textarea>
+        <button class="btn" onclick="processCode()">⚡ Quét Lỗi Ngay</button>
+    </div>
+
+    <!-- KHUNG HIỂN THỊ CODE GỐC -->
+    <div class="card">
+        <label>2. Code gốc (Đánh số lề trái - Chỉ tô sáng vị trí ngoặc bị lỗi):</label>
+        <div class="editor-container">
+            <div id="lineNumbers" class="line-numbers">1</div>
+            <div id="codeDisplay" class="code-content">Chưa có nội dung...</div>
+        </div>
+    </div>
+
+    <!-- NHẬT KÝ BÁO LỖI -->
+    <div class="card">
+        <label>3. Nhật ký vị trí lỗi chi tiết:</label>
+        <div id="logOutput" class="log-box">Hệ thống sẵn sàng...</div>
+    </div>
+</div>
+
+<script>
+function processCode() {
+    const text = document.getElementById('codeInput').value;
+    const lineNumbersEl = document.getElementById('lineNumbers');
+    const codeDisplayEl = document.getElementById('codeDisplay');
+    const logOutput = document.getElementById('logOutput');
+
+    if (!text.trim()) {
+        lineNumbersEl.innerHTML = "1";
+        codeDisplayEl.innerHTML = "Chưa có nội dung...";
+        logOutput.style.color = "#ffeb3b";
+        logOutput.textContent = "Hệ thống sẵn sàng...";
+        return;
+    }
+
+    // --- 1. TẠO SỐ DÒNG LỀ TRÁI ---
+    const lines = text.split('\n');
+    let lineHTML = "";
+    for (let i = 1; i <= lines.length; i++) {
+        lineHTML += i + "<br>";
+    }
+    lineNumbersEl.innerHTML = lineHTML;
+
+    // --- 2. THUẬT TOÁN QUÉT LỖI NGOẶC ---
+    let openStack = [];
+    let errorIndices = new Set();
+    let logs = [];
+
+    for (let i = 0; i < text.length; i++) {
+        let char = text[i];
+
+        if (char === '(' || char === '{' || char === '[') {
+            openStack.push({ char: char, index: i });
+        } 
+        else if (char === ')' || char === '}' || char === ']') {
+            if (openStack.length === 0) {
+                errorIndices.add(i);
+                let lineNo = getLineNumber(text, i);
+                logs.push(`❌ Dòng ${lineNo}: Thừa dấu đóng '${char}'`);
+            } else {
+                let lastOpen = openStack.pop();
+                let isMatch = (lastOpen.char === '(' && char === ')') ||
+                              (lastOpen.char === '{' && char === '}') ||
+                              (lastOpen.char === '[' && char === ']');
+                
+                if (!isMatch) {
+                    errorIndices.add(i);
+                    let lineNo = getLineNumber(text, i);
+                    logs.push(`❌ Dòng ${lineNo}: Sai cặp ngoặc (Mở '${lastOpen.char}' nhưng đóng '${char}')`);
+                }
+            }
+        }
+    }
+
+    while (openStack.length > 0) {
+        let unclosed = openStack.pop();
+        errorIndices.add(unclosed.index);
+        let lineNo = getLineNumber(text, unclosed.index);
+        logs.push(`⚠️ Dòng ${lineNo}: Thiếu dấu đóng cho ngoặc mở '${unclosed.char}'`);
+    }
+
+    // --- 3. HIỂN THỊ CODE GỐC: NGOẶC ĐÚNG GIỮA NGUYÊN, NGOẶC SAI MỚI TÔ MÀU ---
+    let highlightedHTML = "";
+    for (let i = 0; i < text.length; i++) {
+        let safeChar = escapeHtml(text[i]);
+        
+        if (errorIndices.has(i)) {
+            // Chỉ tô màu vị trí lỗi để dễ nhìn
+            highlightedHTML += `<span class="error-mark">${safeChar}</span>`;
+        } else {
+            highlightedHTML += safeChar;
+        }
+    }
+    codeDisplayEl.innerHTML = highlightedHTML;
+
+    // --- 4. HIỂN THỊ NHẬT KÝ BÁO LỖI ---
+    if (logs.length === 0) {
+        logOutput.style.color = "#00ffcc";
+        logOutput.textContent = "✨ Tuyệt vời! Tất cả các dấu ngoặc đều hoàn chỉnh và đối xứng hoàn hảo.";
+    } else {
+        logOutput.style.color = "#ff5252";
+        logOutput.textContent = logs.join('\n');
+    }
+}
+
+function getLineNumber(fullText, index) {
+    return (fullText.substring(0, index + 1).match(/\n/g) || []).length + 1;
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+</script>
+
+</body>
+</html>
