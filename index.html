@@ -13,6 +13,7 @@
             --text-muted: #94a3b8;
             --accent-color: #00f0ff;
             --btn-bg: #10b981;
+            --btn-clear: #ef4444;
             --error-color: #ff4444;
         }
 
@@ -64,7 +65,7 @@
             border-radius: 6px;
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.95rem;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             resize: vertical;
             outline: none;
             line-height: 1.5;
@@ -73,6 +74,11 @@
         textarea:focus {
             border-color: var(--accent-color);
             box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
         }
 
         .btn {
@@ -88,6 +94,10 @@
 
         .btn:hover {
             opacity: 0.85;
+        }
+
+        .btn-clear {
+            background-color: var(--btn-clear);
         }
 
         /* KHUNG CODE CÓ SỐ DÒNG LỀ TRÁI */
@@ -154,7 +164,10 @@
     <div class="card">
         <label for="codeInput">1. Dán đoạn code cần kiểm tra vào đây:</label>
         <textarea id="codeInput" placeholder="Ví dụ:&#10;function tinhToan(a, b) {&#10;    let tong = (a + (b * 2);&#10;    return tong;&#10;}" oninput="processCode()"></textarea>
-        <button class="btn" onclick="processCode()">⚡ Quét Lỗi Ngay</button>
+        <div class="button-group">
+            <button class="btn" onclick="processCode()">⚡ Quét Lỗi Ngay</button>
+            <button class="btn btn-clear" onclick="clearAll()">🗑️ Xóa Nội Dung</button>
+        </div>
     </div>
 
     <!-- KHUNG HIỂN THỊ CODE GỐC -->
@@ -240,7 +253,6 @@ function processCode() {
         let safeChar = escapeHtml(text[i]);
         
         if (errorIndices.has(i)) {
-            // Chỉ tô màu vị trí lỗi để dễ nhìn
             highlightedHTML += `<span class="error-mark">${safeChar}</span>`;
         } else {
             highlightedHTML += safeChar;
@@ -256,6 +268,15 @@ function processCode() {
         logOutput.style.color = "#ff5252";
         logOutput.textContent = logs.join('\n');
     }
+}
+
+function clearAll() {
+    document.getElementById('codeInput').value = '';
+    document.getElementById('lineNumbers').innerHTML = '1';
+    document.getElementById('codeDisplay').innerHTML = 'Chưa có nội dung...';
+    let logOutput = document.getElementById('logOutput');
+    logOutput.style.color = '#ffeb3b';
+    logOutput.textContent = 'Hệ thống sẵn sàng...';
 }
 
 function getLineNumber(fullText, index) {
